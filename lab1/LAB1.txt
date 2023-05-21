@@ -1,0 +1,75 @@
+LAB1
+
+Općenito:
+* Kako poslati signal procesu:
+   a) preko tipkovnice
+   b) iz ljuske
+
+   a) ctrl+C
+   b) kill <imesignala> <pid>
+
+
+* Navesti nekoliko signala i čemu služe.
+
+SIGINT - prekinuti nasilno proces nakon što je došlo do pogreške
+SIGTERM - prekinuti proces npr. tijekom gašenja računala
+
+
+*SIGUSR1 u labosu - korisnički signal bez posebne namjene	
+
+
+* Što radi funkcija sigaction?
+
+SIGACTION - definira ponašanje programa za neki signal
+
+
+* Što se sve može postići sa sigaction (koja sve ponašanja, što treba staviti kao argumente)?
+
+  Ime signala, struktura koja specificira koja akcija je povezana sa tim signalom, pointer koji pokazuje na akciju koja je prije bila povezana sa signalom (samo ako argument nije nullpointer)
+
+
+* Opisati postupak prihvata signala.
+
+
+
+* Kad se signal neće prihvatiti?
+
+  Kada je njegov prioritet manji ili jednak signalu koji je trenutno u obradi
+
+
+* Ako je programu poslan signal SIGINT za vrijeme čekanja na funkciji sleep(10), što će se dogoditi nakon povratka iz obrade signala? Hoće li program "odspavati" neprospavano vrijeme ili ne? Zašto?
+
+  Prekinut će mu spavanje, zato što.....
+
+
+* Neka program trenutno obrađuje signal SIGINT. Što će se dogoditi ako mu se tada pošalje još jedan SIGINT? Što ako mu se tada pošalje SIGTERM?
+
+Ako mu se pošanje još jedan SIGINT neće se dogoditi ništa, a ako mu se pošalje SIGTERM će se SIGTERM zapamtit i poslat procesoru tek kada SIGINT završi sa obradom
+
+
+* Što ako za signal SIGINT nije navedeno ponašanje (sa sigaction)? Što će se dogoditi s procesom kad primi taj signal?
+
+  Program će se nasilno ugasiti
+
+
+Vezano uz vježbe:
+Zadatak 1
+* Provjeriti da li program radi (prevođenje/pokretanje).
+
+
+* Što bi se dogodilo kad bi se maknuo poziv sigaction iz programa?
+
+  Signali bi se obrađivali onako kako je to određeno u operativnom sustavu po defaultu
+
+
+* Zašto Ctrl+\ prekida izvođenje?
+
+SIGQUIT -> signal koji završi program
+
+
+* Poslati signal SIGKILL programu, koristeći drugi terminal (ljusku).
+
+
+* Dok jedan signal već čeka početak obrade (npr. SIGUSR1, K_Z=010) ponovno poslati isti signal procesu. Što će se dogoditi? Zašto?
+
+Neće se dogoditi ništa jer smo stavili act.sa_flags = 0
