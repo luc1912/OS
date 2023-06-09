@@ -1,165 +1,206 @@
-#include <bits/stdc++.h>
+#include <iostream>
+#include <vector>
+#include <ctime>
+#include <unistd.h>
+#include <cstring>
+#include <iomanip>
+#include <windows.h>
+#include <climits>
+#include <tuple>
+
 using namespace std;
-typedef long long ll;
-typedef long double ld;
-typedef pair<ll, ll> ii;
-#define pb push_back
-#define all(x) (x).begin(), (x).end()
-#define sqr(x) ((x) * (x))
-#define X first
-#define Y second
-#define FOR(i, a, b) for (int i = (a); i < (b); ++i)
-#define REP(i, n) FOR (i, 0, n)
-#define TRACE(x) cout << #x << " = " << x << endl
-#define _ << " _ " <<
-#define debug(...) fprintf(stderr, __VA_ARGS__)
-#define MOD 1000000007LL
 
-int n, m;
+class Proces {
+private:
+    int N;
+    int M;
+    char*** disk; //disk -> N procesa, 16 logičkih stranica, 64 okteta, disk[N][16][64]
+    short** okvir; //okvir -> M okvira od 64 okteta, okvir[M][64]
+    short** tablica; //tablica -> za svaki od N procesa za svaku od 16 logičkih stranica, tablica[N][16]
+    int t;
+    int pocetni;
 
-const int MEM = 1 << 16;
+public:
+    Proces(int n, int m) {
+        N = n;
+        M = m;
 
-struct proces {
-  vector<int> tablica;
+        // Alokacija memorije za polje disk
+        disk = new char**[N];
+        for (int i = 0; i < N; i++) {
+            disk[i] = new char*[16];
+            for (int j = 0; j < 16; j++) {
+                disk[i][j] = new char[64];
+            }
+        }
 
-  proces() : tablica(vector<int>(16)) {
-  }
+        // Alokacija memorije za polje okvir
+        okvir = new short*[M];
+        for (int i = 0; i < M; i++) {
+            okvir[i] = new short[64];
+        }
+
+        // Alokacija memorije za polje tablica
+        tablica = new short*[N];
+        for (int i = 0; i < N; i++) {
+            tablica[i] = new short[16];
+        }
+
+        pocetni = 0;
+    }
+
+    ~Proces() {
+        // Dealokacija memorije za polje disk
+        for (int i = 0; i < N; i++) {
+            for (int j = 0; j < 16; j++) {
+                delete[] disk[i][j];
+            }
+            delete[] disk[i];
+        }
+        delete[] disk;
+
+        // Dealokacija memorije za polje okvir
+        for (int i = 0; i < M; i++) {
+            delete[] okvir[i];
+        }
+        delete[] okvir;
+
+        // Dealokacija memorije za polje tablica
+        for (int i = 0; i < N; i++) {
+            delete[] tablica[i];
+        }
+        delete[] tablica;
+    }
+
+    void inicijalizacija(int broj_procesa) { //inicijaliziramo tablicu za i-ti proces
+        for (int i = 0; i < 16; i++) {
+            tablica[broj_procesa][i] = 0;
+        }
+    }
+
+    char dohvati_fizicku_adresu(int proces, unsigned short x, int ispis) {
+        char indeks = x >> 6;
+        int okvir_tmp = (tablica[proces][x >> 6] >> 5) & 0x1;
+
+        if (okvir_tmp == 0 && !ispis) {
+            cout << "\tPromasaj!" << endl;
+            int i_najmanji, j_najmanji;
+            char adresa_najmanji;
+            tie(i_najmanji, j_najmanji, adresa_najmanji) = pronadi_i_dodijeli_okvir(proces, x);
+            ucitaj_sadrzaj_stranice_s_diska(proces, x, adresa_najmanji >> 6);
+            azuriraj_tablicu_prevodenja(proces, x, i_najmanji, j_najmanji, adresa_najmanji);
+            if (pocetni < M) pocetni++;
+        }
+        return indeks;
+    }
+
+    char dohvati_sadrzaj(int proces, unsigned short x) {
+        char fizicka_adresa = dohvati_fizicku_adresu(proces, x, 0);
+        char sadrzaj = okvir[tablica[proces][fizicka_adresa] >> 6][x & 0x3F];
+        return sadrzaj;
+    }
+
+    void zapis_vrijednost(int proces, unsigned short x, char sadrzaj) {
+        char fizicka_adresa = dohvati_fizicku_adresu(proces, x, 1);
+        // Zapiši vrijednost i na adresu fizicka_adresa
+        okvir[tablica[proces][fizicka_adresa] >> 6][x & 0x3F] = sadrzaj;
+    }
+
+    tuple<int, int, char> pronadi_i_dodijeli_okvir(int proces, char x) {
+        int i_najmanji = 0;
+        int j_najmanji = 0;
+        char adresa_najmanji = 0;
+        if (pocetni < M) {
+            cout << "Dodjeljen okvir: 0x" << hex << pocetni << endl;
+        } else {
+            int najmanji_t = INT_MAX;
+            for (int i = 0; i < N; i++) {
+                for (int j = 0; j < 16; j++) {
+                    if (((tablica[i][j] >> 5) & 1) == 1 && (tablica[i][j] & 0x1F) < najmanji_t) {
+                        i_najmanji = i;
+                        j_najmanji = j;
+                        adresa_najmanji = tablica[i][j] & 0xffc0;
+                    }
+                }
+            }
+
+            cout << "\t\tIzbacujem stranicu 0x" << hex << (x & 0xfc0) << " iz procesa" << i_najmanji << endl;
+            cout << "\t\tLRU izbacene stranice: 0x" << hex << (tablica[i_najmanji][j_najmanji] & 0x1f) << endl;
+            cout << "\t\tDodjeljen okvir: 0x" << hex << (adresa_najmanji >> 6) << endl;
+        }
+
+        cout << "\tFizicka adresa: 0x" << hex << ((tablica[proces][x >> 6] & 0xffc0) | (x & 0x3f)) << endl;
+        cout << "\tZapis tablice: 0x" << hex << tablica[proces][x >> 6] << endl;
+        cout << "\tSadrzaj adrese: 0x" << hex << okvir[tablica[proces][x >> 6] >> 6][x & 0x3f] << endl;
+        return make_tuple(i_najmanji, j_najmanji, adresa_najmanji);
+    }
+
+    void ucitaj_sadrzaj_stranice_s_diska(int proces, unsigned short x, int adresa) {
+        //učitamo sadržaj stranice X sa diska u taj okvir
+        int pom;
+        if (pocetni < M) {
+            pom = pocetni;
+        } else {
+            pom = adresa;
+        }
+        for (int i = 0; i < 64; i++) {
+            okvir[pom][i] = disk[proces][x >> 6][i];
+        }
+    }
+
+    void azuriraj_tablicu_prevodenja(int proces, unsigned short x, int i_najmanji, int j_najmanji, char adresa_najmanji) {
+        //stranica koja je prije bila u okviru ju maknemo iz tablice prevođenja
+        //trenutnu stranicu stavimo u tablicu prevođenja
+        if (pocetni < M) {
+            tablica[proces][x >> 6] = (pocetni << 6) + 32 + t;
+        } else {
+            tablica[i_najmanji][j_najmanji] &= 0xffdf;
+            tablica[proces][x >> 6] = adresa_najmanji | 32 | t;
+        }
+    }
+
+    void algoritam1() {
+        t = 0;
+        srand(time(nullptr));
+
+        while (1) {
+            for (int proces = 0; proces < N; proces++) {
+                cout << "-----------------------------" << endl;
+                cout << "Proces: " << proces << endl;
+                cout << "\tt: " << dec << t << endl;
+
+                //unsigned short x = rand() % 0x3FE; //generiranje random logičke adrese
+                unsigned short x = 0x01fe;
+                cout << "Logicka adresa: 0x" << hex << x << endl;
+                char sadrzaj = dohvati_sadrzaj(proces, x);
+                sadrzaj++;
+                zapis_vrijednost(proces, x, sadrzaj);
+                t++;
+                Sleep(1000);
+            }
+        }
+    }
+
 };
 
-struct okvir {
-  char oktet[64];
-  int owner = -1;
-  int page;
-  int address;
-};
 
-vector<proces> procesi;
-char disk[MEM];
-vector<okvir> ram;
+int main() {
+    int N;
+    int M;
 
-const int MASK_PAGE = 0b1111000000;
-const int MASK_SHIFT = 0b0000111111;
+    cout << "Unesite broj procesa: ";
+    cin >> N;
 
-const int MASK_OKVIR = 0b1111111111000000;
-const int MASK_P = 0b0000000000100000;
-const int MASK_LRU = 0b0000000000011111;
+    cout << "Unesite broj okvira: ";
+    cin >> M;
 
-int main(int, char* argv[])
-{
-  srand(7);
-  memset(disk, 0, sizeof disk);
-  n = 0;
-  for (int i = 0; (argv[1])[i]; i++) {
-    n *= 10;
-    n += (argv[1])[i] - '0';
-  }
-  m = 0;
-  for (int i = 0; (argv[2])[i]; i++) {
-    m *= 10;
-    m += (argv[2])[i] - '0';
-  }
-  ram.resize(m);
-  //cout << n << " " << m << endl;
-  for (int i = 0; i < n; i++) {
-    procesi.emplace_back();
-    for (int j = 0; j < 16; j++) {
-      static int broj = 0;
-      procesi[i].tablica[j] |= broj << 6;
-      ++broj;
+    Proces proces(N, M);
+
+    for (int i = 0; i < N; i++) {
+        proces.inicijalizacija(i);
     }
-  }
-  for (int t = 0; ; ) {
-    for (int i = 0; i < n; i++) {
-      int x = rand() % MEM;
-      ///x = 0x1FE;
 
-      int stranica = (x & MASK_PAGE) >> 6;
-      int pomak = x & MASK_SHIFT;
+    proces.algoritam1();
 
-      auto& tab = procesi[i].tablica;
-
-      int& zapis = tab[stranica];
-
-      int p = (zapis & MASK_P) >> 5;
-
-
-      cout << "---------------------------" << endl;
-      cout << "proces: " << i << endl;
-      cout << "\tt: " << t << endl;
-      cout << "\tlog. adresa: " << bitset<16>(x) << endl;
-      printf("0x%04x\n", x);
-
-      if (!p) {
-        int mni = 0;
-        for (int j = 0; j < m; j++) {
-          if (ram[j].owner == -1) {
-            mni = j;
-            break;
-          } else if ((procesi[ram[j].owner].tablica[ram[j].page] & MASK_LRU) <
-                     (procesi[ram[mni].owner].tablica[ram[mni].page] & MASK_LRU)) {
-                       mni = j;
-                     }
-        }
-        cout << "\tPromasaj!" << endl;
-        if (ram[mni].owner != -1) {
-          //copy(ram[mni].oktet, ram[mni].oktet + 64, disk[ram[mni].address]);
-          for (int l = 0; l < 64; l++) {
-            disk[ram[mni].address + l] = ram[mni].oktet[l];
-          }
-          procesi[ram[mni].owner].tablica[ram[mni].page] &= ~MASK_P;
-          cout << "\t\tIzbacujem stranicu " << bitset<16>(ram[mni].page << 6) << " iz procesa " << ram[mni].owner << endl;
-      printf("0x%04x\n", ram[mni].page << 6);
-          cout << "\t\tlru izbacene stranice: " << bitset<5>(procesi[ram[mni].owner].tablica[ram[mni].page]) << "\n";
-      printf("0x%04x\n", procesi[ram[mni].owner].tablica[ram[mni].page]);
-        }
-        cout << "\t\tdodijeljen okvir " << bitset<4>(mni) << endl;
-      printf("0x%04x\n", mni);
-        zapis |= MASK_P;
-        ///zapis |= (mni << 6);
-        ram[mni].owner = i;
-        ram[mni].page = stranica;
-        ///ram[mni].address = (mni << 6);
-        ram[mni].address = zapis & MASK_OKVIR;
-        for (int l = 0; l < 64; l++) {
-          ram[mni].oktet[l] = disk[(zapis & MASK_OKVIR) + l];
-        }
-        //copy(disk[mni], disk[mni + 64], ram[mni].oktet);
-      }
-      zapis &= ~MASK_LRU;
-      zapis |= t;
-
-      int okvir_adresa = zapis & MASK_OKVIR;
-      ///int lru = zapis & MASK_LRU;
-
-      int konacna_adresa = okvir_adresa | pomak;
-
-      cout << "\tfiz. adresa: " << bitset<16>(konacna_adresa) << "\n";
-      printf("0x%04x\n", konacna_adresa);
-      cout << "\tzapis tablice: " << bitset<16>(zapis) << endl;
-      printf("0x%04x\n", zapis);
-
-      int index = 0;
-      for (index = 0; index < m; ++index) {
-        if (ram[index].owner == i && ram[index].page == stranica) {
-          break;
-        }
-      }
-
-      cout << "\tsadrzaj adrese: " << int(ram[index].oktet[pomak]) << endl;
-
-      ++ram[index].oktet[pomak];
-
-      ++t;
-      if (t == 31) {
-        t = 1;
-        for (int j = 0; j < n; j++) {
-          for (int k = 0; k < 16; k++) {
-            procesi[j].tablica[k] &= ~MASK_LRU;
-          }
-        }
-      }
-      std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-    }
-  }
-  return 0;
+    return 0;
 }
