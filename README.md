@@ -1,2 +1,2 @@
 # OS
-labosi iz operacijskih sustava
+operating systems tasks
