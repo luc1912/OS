@@ -1,16 +1,16 @@
 # OS
-operating systems 
+laboratorijske vježbe iz predmeta "Operacijski sustavi"
 
 # lab1
-simulation of processor circuitry used for handling interrupts
+simulacija rukovanja prekidima kod procesora
 
 # lab2
-implementation of Lamport and Dekker algorithms
-simulation of shell
+implementacija Lamportovog i Dekkerovog algoritma
+simulacija shell-a
 
 # lab3
-solving hairdresser problem using semaphores
-solving cannibal and missionaries problem using mutex
+rješenje problema frizerke korištenjem semafora
+rješenje problema kanibala i misionara korištenjem monitora
 
 # lab4
-simulation of pagination
+simulacija straničenja
